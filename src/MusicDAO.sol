@@ -2,13 +2,14 @@
 pragma solidity ^0.8.20;
 
 import "./DaoToken.sol";
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 // For now ticket price is a constant
 uint constant TICKET_PRICE = 50;
 uint constant WINNING_QUORUM = 51;
 
-contract EventDAO is ERC721 {
+contract EventDAO is ERC1155, ReentrancyGuard {
     DaoToken public daoToken;
 
     struct Event {
@@ -25,12 +26,13 @@ contract EventDAO is ERC721 {
         uint8[] voteOptionsMonth;
         uint8 winningOptionCountry;
         uint8 winningOptionMonth;
+        uint nftId;
     }
 
     mapping(uint256 => Event) public events;
     uint256 public nextEventId;
 
-    constructor(address daoTokenAddress) ERC721("EventTicket", "ETK") {
+    constructor(address daoTokenAddress) ERC1155("EventTicket") {
         daoToken = DaoToken(daoTokenAddress);
     }
 
@@ -50,14 +52,12 @@ contract EventDAO is ERC721 {
         newEvent.isActive = true;
         newEvent.depositDeadline = block.timestamp + depositPeriod;
         newEvent.voteDeadline = newEvent.depositDeadline + votePeriod;
+        newEvent.nftId = 0;
     }
 
     function depositTokens(uint256 eventId, uint256 amount) external {
         Event storage event_ = events[eventId];
-        require(
-            block.timestamp <= event_.depositDeadline,
-            "Deposit period has ended"
-        );
+
         require(
             daoToken.transferFrom(msg.sender, address(this), amount),
             "Transfer failed"
@@ -67,8 +67,28 @@ contract EventDAO is ERC721 {
         event_.totalDeposits += amount;
     }
 
-    function mintNftForParticipants(uint256 eventId) external {
-        // Ensure conditions are met, then mint NFT
+    function mintNftForParticipants(uint256 eventId) external nonReentrant {
+        Event storage event_ = events[eventId];
+        uint amountToMint = event_.deposits[msg.sender];
+
+        require(
+            block.timestamp > event_.voteDeadline,
+            "Vote stage has not ended yet"
+        );
+
+        require(
+            block.timestamp > event_.depositDeadline,
+            "Deposit period not ended"
+        );
+        require(amountToMint > 0, "You can mint");
+
+        amountToMint /= TICKET_PRICE;
+
+        event_.deposits[msg.sender] = 0;
+
+        _mint(msg.sender, events[eventId].nftId, amountToMint, "");
+
+        event_.nftId += 1;
     }
 
     function voteCountryMonth(
