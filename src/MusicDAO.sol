@@ -73,7 +73,7 @@ contract EventDAO is ERC721 {
 
     function voteCountryMonth(
         uint256 eventId,
-        bytes32 country,
+        uint8 country,
         uint8 month
     ) external {
         Event storage event_ = events[eventId];
@@ -89,21 +89,8 @@ contract EventDAO is ERC721 {
         );
         require(amount > 0, "You haven't despoited anything for this event");
 
-        event_.votes[country] += amount;
-        event_.votes[month] += amount;
-
-        // Check if the option exists, if not add it
-        // we can have a list of countries in the UI and we can vote with uint instead of bytes32.
-        bool exists = false;
-        for (uint i = 0; i < event_.voteOptions.length; i++) {
-            if (event_.voteOptions[i] == country) {
-                exists = true;
-                break;
-            }
-        }
-        if (!exists) {
-            event_.voteOptions.push(country);
-        }
+        event_.votesCountry[country] += amount;
+        event_.votesMonth[month] += amount;
     }
 
     function determineWinner(uint256 eventId) external {
@@ -112,10 +99,7 @@ contract EventDAO is ERC721 {
             block.timestamp > event_.voteDeadline,
             "Voting period not ended"
         );
-        require(
-            event_.winningOptionCountry == bytes32(0),
-            "Winner already decided"
-        );
+        require(event_.winningOptionCountry == 0, "Winner already decided");
 
         uint256 winningVoteCountCountry = 0;
         uint256 winningVoteCountMonth = 0;
@@ -127,18 +111,16 @@ contract EventDAO is ERC721 {
 
             if (optionVote > winningVoteCountCountry) {
                 winningVoteCountCountry = optionVote;
-                event_.winningOptionCountry = optionVote;
+                event_.winningOptionCountry = event_.voteOptionsCountry[i];
             }
         }
 
         for (uint i = 0; i < event_.voteOptionsMonth.length; i++) {
-            uint256 optionVoteMonth = event_.votesMonth[
-                event_.voteOptionsMonth[i]
-            ];
+            uint256 optionVote = event_.votesMonth[event_.voteOptionsMonth[i]];
 
-            if (optionVoteMonth > winningVoteCountCountry) {
-                winningVoteCountMonth = optionVoteMonth;
-                event_.winningOptionMonth = optionVoteMonth;
+            if (optionVote > winningVoteCountMonth) {
+                winningVoteCountMonth = optionVote;
+                event_.winningOptionMonth = event_.voteOptionsMonth[i];
             }
         }
 
