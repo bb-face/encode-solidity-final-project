@@ -20,7 +20,7 @@ contract EventDAO is ERC721 {
         mapping(address => uint256) deposits;
         mapping(uint8 => uint256) votesCountry;
         mapping(uint8 => uint256) votesMonth;
-				// in the ui we will display the country with a uint associated to it
+        // in the ui we will display the country with a uint associated to it
         uint8[] voteOptionsCountry;
         uint8[] voteOptionsMonth;
         uint8 winningOptionCountry;
@@ -121,25 +121,35 @@ contract EventDAO is ERC721 {
         uint256 winningVoteCountMonth = 0;
 
         for (uint i = 0; i < event_.voteOptionsCountry.length; i++) {
-            uint8 optionCountry = event_.voteOptionsCountry[i];
-            uint8 optionMonth = event_.voteOptionsMonth;
+            uint256 optionVote = event_.votesCountry[
+                event_.voteOptionsCountry[i]
+            ];
 
-            uint256 optionVote = event_.votesCountry[optionCountry];
-            uint256 optionVoteMonth = event_.votesMonth[optionMonth];
-
-            if (optionVoteCountry > winningVoteCountCountry) {
-                winningVoteCountCountry = optionVoteCountry;
-                event_.winningOptionCountry = optionCountry;
+            if (optionVote > winningVoteCountCountry) {
+                winningVoteCountCountry = optionVote;
+                event_.winningOptionCountry = optionVote;
             }
+        }
+
+        for (uint i = 0; i < event_.voteOptionsMonth.length; i++) {
+            uint256 optionVoteMonth = event_.votesMonth[
+                event_.voteOptionsMonth[i]
+            ];
 
             if (optionVoteMonth > winningVoteCountCountry) {
                 winningVoteCountMonth = optionVoteMonth;
-                event_.winningOptionMonth = optionMonth;
+                event_.winningOptionMonth = optionVoteMonth;
             }
         }
 
         require(
-            (winningVoteCount * 100) / event_.totalDeposits >= WINNING_QUORUM;
+            (winningVoteCountCountry * 100) / event_.totalDeposits >=
+                WINNING_QUORUM,
+            "No option has reached the majority"
+        );
+        require(
+            (winningVoteCountMonth * 100) / event_.totalDeposits >=
+                WINNING_QUORUM,
             "No option has reached the majority"
         );
     }
